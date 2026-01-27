@@ -129,10 +129,10 @@ export default function NyayaRakshakLanding() {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Link 
-                      href="/selectrole" 
+                      href="/upload" 
                       className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded font-bold text-sm shadow-xl shadow-orange-600/20 flex items-center justify-center gap-2 transition-transform hover:-translate-y-1"
               >
-  Select Role <ArrowRight className="w-4 h-4" />
+  Upload FIR files <ArrowRight className="w-4 h-4" />
 </Link>
               <button className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-8 py-4 rounded font-bold text-sm flex items-center justify-center gap-2 transition-colors">
                 <FileText className="w-4 h-4" /> Read Whitepaper
