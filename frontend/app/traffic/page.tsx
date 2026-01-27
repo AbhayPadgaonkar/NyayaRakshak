@@ -170,7 +170,7 @@ export default function TrafficDashboard() {
           </div>
           {isSidebarOpen && (
             <div>
-              <h1 className="font-bold leading-none">NYAYA</h1>
+              <h1 className="font-bold leading-none">NyayaRakshak</h1>
               <span className="text-[10px] text-green-400 uppercase tracking-widest">Traffic Control</span>
             </div>
           )}

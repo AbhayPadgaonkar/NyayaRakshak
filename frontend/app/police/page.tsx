@@ -288,7 +288,7 @@ export default function PoliceDashboard() {
           </div>
           {isSidebarOpen && (
             <div>
-              <h1 className="font-bold leading-none">NYAYA</h1>
+              <h1 className="font-bold leading-none">NyayaRakshak</h1>
               <span className="text-[10px] text-blue-300 uppercase tracking-widest">Police Dept</span>
             </div>
           )}
