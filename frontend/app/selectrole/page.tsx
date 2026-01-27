@@ -24,7 +24,7 @@ export default function SelectRolePage() {
       color: "text-blue-700",
       bg: "bg-blue-50",
       border: "hover:border-blue-500",
-      link: "/dashboard/police" // Update this later
+      link: "/police" // Update this later
     },
     {
       id: "investigation",
@@ -35,7 +35,7 @@ export default function SelectRolePage() {
       color: "text-orange-600",
       bg: "bg-orange-50",
       border: "hover:border-orange-500",
-      link: "/dashboard/investigation" // Update this later
+      link: "investigations" // Update this later
     },
     {
       id: "traffic",
