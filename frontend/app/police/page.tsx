@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
-import dynamic from "next/dynamic"; // For loading the map
+import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { 
   Shield, Siren, Users, MessageSquare, FileText, 
-  LayoutDashboard, Bell, MapPin, Clock, CheckCircle2, 
-  ChevronRight, Menu, UploadCloud
+  LayoutDashboard, Bell, CheckCircle2, 
+  ChevronRight, Menu, UploadCloud,Clock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // --- DYNAMIC IMPORT FOR MAP (Critical for Next.js) ---
+// Note: If your alias '@/' isn't set up, change this to "../../components/LiveCrimeMap"
 const LiveCrimeMap = dynamic(() => import("@/app/components/LiveCrimeMap"), { 
   ssr: false,
   loading: () => (
@@ -104,7 +105,6 @@ export default function PoliceDashboard() {
     <div className="space-y-6">
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[400px]">
-           {/* Reusing the Map Component for Deployment View as well */}
            <div className="h-full w-full relative">
               <LiveCrimeMap />
               <div className="absolute top-4 left-4 bg-white/90 px-3 py-1 rounded text-xs font-bold text-red-600 shadow z-[400]">
@@ -179,44 +179,64 @@ export default function PoliceDashboard() {
     </div>
   );
 
-  // 4. COMPLAINTS TAB
-  const ComplaintsView = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-4">
-         {['Theft', 'Assault', 'Cyber', 'Traffic'].map((cat) => (
-           <div key={cat} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
-             <div className="text-xs font-bold text-slate-400 uppercase mb-1">{cat} Reports</div>
-             <div className="text-2xl font-bold text-slate-800">{Math.floor(Math.random() * 20) + 5}</div>
-           </div>
-         ))}
-      </div>
+  // 4. COMPLAINTS TAB - HYDRATION FIX APPLIED
+  const ComplaintsView = () => {
+    // We use a local state to ensure values are set ONLY after mount (client-side)
+    const [counts, setCounts] = useState({
+      Theft: 0,
+      Assault: 0,
+      Cyber: 0,
+      Traffic: 0
+    });
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        <div className="p-4 border-b border-slate-100 flex gap-4">
-          <button className="text-blue-700 font-bold border-b-2 border-blue-700 pb-1 text-sm">All Cases</button>
-          <button className="text-slate-500 font-medium hover:text-slate-800 pb-1 text-sm">High Priority</button>
-          <button className="text-slate-500 font-medium hover:text-slate-800 pb-1 text-sm">Unresolved</button>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {RECENT_COMPLAINTS.map((c) => (
-             <div key={c.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
-               <div className="flex items-center gap-4">
-                  <div className={`w-2 h-2 rounded-full ${c.priority === 'High' ? 'bg-red-500' : c.priority === 'Medium' ? 'bg-orange-500' : 'bg-blue-500'}`}></div>
-                  <div>
-                    <p className="font-bold text-slate-800 text-sm">{c.id} - <span className="text-slate-600 font-normal">{c.type}</span></p>
-                    <p className="text-xs text-slate-500">{c.location} • {c.time}</p>
-                  </div>
-               </div>
-               <div className="flex items-center gap-4">
-                 <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-600">{c.status}</span>
-                 <button className="text-blue-600 hover:text-blue-800"><ChevronRight className="w-4 h-4" /></button>
-               </div>
+    useEffect(() => {
+      // This runs only on the client, preventing server mismatch errors
+      setCounts({
+        Theft: Math.floor(Math.random() * 20) + 5,
+        Assault: Math.floor(Math.random() * 20) + 5,
+        Cyber: Math.floor(Math.random() * 20) + 5,
+        Traffic: Math.floor(Math.random() * 20) + 5
+      });
+    }, []);
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-4 gap-4">
+           {['Theft', 'Assault', 'Cyber', 'Traffic'].map((cat) => (
+             <div key={cat} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+               <div className="text-xs font-bold text-slate-400 uppercase mb-1">{cat} Reports</div>
+               <div className="text-2xl font-bold text-slate-800">{counts[cat as keyof typeof counts]}</div>
              </div>
-          ))}
+           ))}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+          <div className="p-4 border-b border-slate-100 flex gap-4">
+            <button className="text-blue-700 font-bold border-b-2 border-blue-700 pb-1 text-sm">All Cases</button>
+            <button className="text-slate-500 font-medium hover:text-slate-800 pb-1 text-sm">High Priority</button>
+            <button className="text-slate-500 font-medium hover:text-slate-800 pb-1 text-sm">Unresolved</button>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {RECENT_COMPLAINTS.map((c) => (
+               <div key={c.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                 <div className="flex items-center gap-4">
+                    <div className={`w-2 h-2 rounded-full ${c.priority === 'High' ? 'bg-red-500' : c.priority === 'Medium' ? 'bg-orange-500' : 'bg-blue-500'}`}></div>
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">{c.id} - <span className="text-slate-600 font-normal">{c.type}</span></p>
+                      <p className="text-xs text-slate-500">{c.location} • {c.time}</p>
+                    </div>
+                 </div>
+                 <div className="flex items-center gap-4">
+                   <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-600">{c.status}</span>
+                   <button className="text-blue-600 hover:text-blue-800"><ChevronRight className="w-4 h-4" /></button>
+                 </div>
+               </div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // 5. COMMUNITY TAB
   const CommunityView = () => (

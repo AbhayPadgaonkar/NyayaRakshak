@@ -46,7 +46,7 @@ export default function SelectRolePage() {
       color: "text-green-700",
       bg: "bg-green-50",
       border: "hover:border-green-500",
-      link: "/dashboard/traffic" // Update this later
+      link: "/traffic" // Update this later
     }
   ];
 
