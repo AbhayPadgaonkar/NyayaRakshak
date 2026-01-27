@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+psycopg2-binary
+PyPDF2
+pdf2image
+pytesseract
+scikit-learn
+numpy
+python-multipart
