@@ -9,3 +9,4 @@ pytesseract
 scikit-learn
 numpy
 python-multipart
+pypdf
