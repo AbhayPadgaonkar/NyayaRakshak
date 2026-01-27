@@ -1,3 +1,9 @@
+from dotenv import load_dotenv
+from pathlib import Path
+
+env_path = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(dotenv_path=env_path)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # <--- 1. IMPORT THIS
 from backend.api import (
@@ -9,23 +15,24 @@ from backend.api import (
     recommendations
 )
 from backend.api import fir_pipeline
+from backend.api import pipeline
+
 
 
 
 app = FastAPI(title="SafeCity Backend")
 
 app.include_router(fir_pipeline.router, prefix="/fir")
-# --- 2. ADD THIS CORS BLOCK ---
-# This tells the backend: "It's okay to accept requests from localhost:3000"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (Easiest for Hackathons)
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
-# ------------------------------
 
+app.include_router(pipeline.router, prefix="/pipeline")
 app.include_router(documents.router, prefix="/documents")
 app.include_router(hotspots.router, prefix="/hotspots")
 app.include_router(alerts.router, prefix="/alerts")

@@ -10,3 +10,7 @@ scikit-learn
 numpy
 python-multipart
 pypdf
+python-dotenv
+requests 
+groq
+numpy
