@@ -1,42 +1,16 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
 
-def detect_hotspots(points, eps_km=0.5, min_samples=3):
-    """
-    eps_km: radius in kilometers
-    """
-
-    # ✅ STEP 1: FILTER VALID COORDINATES
-    valid_points = []
-    for p in points:
-        lat = p.get("lat")
-        lon = p.get("lon")
-
-        if lat is None or lon is None:
-            continue
-
-        if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
-            continue
-
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-            continue
-
-        valid_points.append(p)
-
-    # 🚨 THIS IS THE LINE THAT SOLVES YOUR BUG
-    if len(valid_points) < min_samples:
+def detect_hotspots(points, eps_km=3, min_samples=2):
+    if not points:
         return {
-            "reason": "Not enough FIRs with valid coordinates",
-            "total_received": len(points),
-            "valid_geo_points": len(valid_points),
-            "clusters": {}
+            "valid_geo_points": 0,
+            "hotspot_clusters": {}
         }
 
-    # ✅ STEP 2: PREPARE COORDS
-    coords = np.array([[p["lat"], p["lon"]] for p in valid_points])
+    coords = np.array([[p["lat"], p["lon"]] for p in points])
 
-    # Convert km → radians
-    eps = eps_km / 6371.0
+    eps = eps_km / 6371.0  # km → radians
 
     clustering = DBSCAN(
         eps=eps,
@@ -47,15 +21,13 @@ def detect_hotspots(points, eps_km=0.5, min_samples=3):
 
     labels = clustering.labels_
 
-    # ✅ STEP 3: BUILD CLUSTERS
     hotspots = {}
-    for label, point in zip(labels, valid_points):
+    for label, point in zip(labels, points):
         if label == -1:
             continue
         hotspots.setdefault(label, []).append(point)
 
     return {
-        "total_received": len(points),
-        "valid_geo_points": len(valid_points),
+        "valid_geo_points": len(points),
         "hotspot_clusters": hotspots
     }

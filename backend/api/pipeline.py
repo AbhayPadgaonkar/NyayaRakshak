@@ -6,23 +6,30 @@ router = APIRouter()
 
 @router.post("/run")
 def run_pipeline(documents_output: dict):
-    fir_results = documents_output.get("results", [])
+    # 1. Get FIRs
+    firs = documents_output.get("firs", [])
 
-    points = build_crime_points(fir_results)
+    # 2. Build geo points
+    points = build_crime_points(firs)
 
+    # 3. Run clustering
     clustering_result = detect_hotspots(points)
 
-    # 🔥 EXTRACT ONLY THE ACTUAL CLUSTERS
+    valid_geo_points = clustering_result.get("valid_geo_points", 0)
     clusters = clustering_result.get("hotspot_clusters", {})
 
-    response = []
+    # 4. Format response
+    hotspot_response = []
 
     for cluster_id, pts in clusters.items():
+        if not pts:
+            continue
+
         avg_lat = sum(p["lat"] for p in pts) / len(pts)
         avg_lon = sum(p["lon"] for p in pts) / len(pts)
 
-        response.append({
-            "cluster_id": cluster_id,
+        hotspot_response.append({
+            "cluster_id": int(cluster_id),
             "crime_count": len(pts),
             "centroid": {
                 "lat": avg_lat,
@@ -31,7 +38,7 @@ def run_pipeline(documents_output: dict):
         })
 
     return {
-        "total_firs": len(fir_results),
-        "valid_geo_points": clustering_result.get("valid_geo_points"),
-        "hotspot_clusters": response
+        "total_firs": len(firs),
+        "valid_geo_points": valid_geo_points,
+        "hotspot_clusters": hotspot_response
     }

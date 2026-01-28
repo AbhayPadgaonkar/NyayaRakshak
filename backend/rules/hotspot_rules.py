@@ -1,21 +1,29 @@
-def detect_hotspots(crimes):
-    if not crimes:
-        return []
+def detect_hotspots(points, eps_km=0.5, min_samples=3):
+    if not points:
+        return {
+            "valid_geo_points": 0,
+            "hotspot_clusters": {}
+        }
 
-    zone_counts = {}
+    coords = np.array([[p["lat"], p["lon"]] for p in points])
+    eps = eps_km / 6371.0
 
-    for c in crimes:
-        zone = c.get("zone")
-        if not zone:
+    clustering = DBSCAN(
+        eps=eps,
+        min_samples=min_samples,
+        metric="haversine",
+        algorithm="ball_tree"
+    ).fit(np.radians(coords))
+
+    labels = clustering.labels_
+
+    hotspots = {}
+    for label, point in zip(labels, points):
+        if label == -1:
             continue
-        zone_counts[zone] = zone_counts.get(zone, 0) + 1
+        hotspots.setdefault(label, []).append(point)
 
-    if not zone_counts:
-        return []
-
-    avg = sum(zone_counts.values()) / len(zone_counts)
-
-    return [
-        zone for zone, count in zone_counts.items()
-        if count > avg
-    ]
+    return {
+        "valid_geo_points": len(points),
+        "hotspot_clusters": hotspots
+    }
