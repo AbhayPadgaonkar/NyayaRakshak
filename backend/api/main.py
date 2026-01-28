@@ -11,6 +11,7 @@ from backend.api import (
     hotspots,
     alerts,
     deployment,
+    patrolling,
     community,
     recommendations,
     debug
@@ -35,6 +36,8 @@ app.add_middleware(
     allow_methods=["*"],  
     allow_headers=["*"],  
 )
+app.include_router(deployment.router)
+app.include_router(patrolling.router)
 app.include_router(debug.router)
 app.include_router(law_order_router)
 app.include_router(pipeline.router, prefix="/pipeline")

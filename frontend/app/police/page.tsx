@@ -29,27 +29,6 @@ const LiveCrimeMap = dynamic(() => import("@/app/components/LiveCrimeMap"), {
   ),
 });
 
-const PATROL_SCHEDULE = [
-  {
-    id: "PCR-101",
-    sector: "Sector 14",
-    time: "18:00 - 22:00",
-    status: "Active",
-  },
-  {
-    id: "PCR-104",
-    sector: "Railway Rd",
-    time: "20:00 - 00:00",
-    status: "Scheduled",
-  },
-  {
-    id: "BIKE-22",
-    sector: "Narrow Lanes (Zone B)",
-    time: "19:30 - 21:30",
-    status: "Active",
-  },
-];
-
 const COMMUNITY_UPLOADS = [
   {
     id: "DOC-882",
@@ -111,6 +90,13 @@ export default function PoliceDashboard() {
       setSending(false);
     }
   }
+  const [patrols, setPatrols] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/patrolling/schedule")
+      .then((res) => res.json())
+      .then(setPatrols);
+  }, []);
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -149,21 +135,21 @@ export default function PoliceDashboard() {
           </h3>
           <div className="space-y-4">
             <div>
-  <label className="text-xs font-bold text-slate-500 uppercase">
-    Target Zone
-  </label>
-  <select
-    value={alertZone} // 1. Bind to your state variable
-    onChange={(e) => setAlertZone(e.target.value)} // 2. Allow state updates
-    // 3. Removed 'disabled' attribute
-    className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-white text-slate-700" // 4. Changed bg-slate-100 to bg-white
-  >
-    <option value="">-- Select Zone --</option>
-    <option value="Borivali">Borivali</option>
-    <option value="Andheri">Andheri</option>
-    <option value="Sector 14">Sector 14</option>
-  </select>
-</div>
+              <label className="text-xs font-bold text-slate-500 uppercase">
+                Target Zone
+              </label>
+              <select
+                value={alertZone} // 1. Bind to your state variable
+                onChange={(e) => setAlertZone(e.target.value)} // 2. Allow state updates
+                // 3. Removed 'disabled' attribute
+                className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-white text-slate-700" // 4. Changed bg-slate-100 to bg-white
+              >
+                <option value="">-- Select Zone --</option>
+                <option value="Borivali">Borivali</option>
+                <option value="Andheri">Andheri</option>
+                <option value="Sector 14">Sector 14</option>
+              </select>
+            </div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase">
                 Alert Severity
@@ -189,11 +175,10 @@ export default function PoliceDashboard() {
                 Message
               </label>
               <textarea
-  className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-slate-50 h-24
+                className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-slate-50 h-24
              whitespace-normal break-words resize-none"
-  placeholder="Type message here..."
-></textarea>
-
+                placeholder="Type message here..."
+              ></textarea>
             </div>
             <button
               onClick={handleBroadcastAlert}
@@ -244,6 +229,14 @@ export default function PoliceDashboard() {
   );
 
   // 2. DEPLOYMENT TAB
+  const [deployments, setDeployments] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/deployment/recommendations")
+      .then((res) => res.json())
+      .then(setDeployments);
+  }, []);
+
   const DeploymentView = () => (
     <div className="space-y-6">
       <div className="grid md:grid-cols-3 gap-6">
@@ -274,18 +267,19 @@ export default function PoliceDashboard() {
             Select a unit type to dispatch immediately to high-risk zones.
           </p>
           <div className="space-y-3">
-            <button className="w-full flex justify-between items-center bg-white/10 hover:bg-white/20 p-3 rounded border border-white/10 transition">
-              <span>👮‍♂️ Riot Control Unit</span>
-              <span className="text-xs bg-green-500 text-white px-1.5 rounded">
-                Avail: 4
-              </span>
-            </button>
-            <button className="w-full flex justify-between items-center bg-white/10 hover:bg-white/20 p-3 rounded border border-white/10 transition">
-              <span>🚔 PCR Van</span>
-              <span className="text-xs bg-orange-500 text-white px-1.5 rounded">
-                Avail: 2
-              </span>
-            </button>
+            {deployments.map((d, idx) => (
+              <div
+                key={idx}
+                className="bg-white/10 p-3 rounded border border-white/10"
+              >
+                <p className="text-sm font-bold">{d.zone}</p>
+                <p className="text-xs text-blue-200">
+                  Units: {d.recommended_units.join(", ")}
+                </p>
+                <p className="text-xs text-red-300">Priority: {d.priority}</p>
+              </div>
+            ))}
+
             <button className="w-full flex justify-between items-center bg-white/10 hover:bg-white/20 p-3 rounded border border-white/10 transition">
               <span>🏍️ Beat Marshall</span>
               <span className="text-xs bg-green-500 text-white px-1.5 rounded">
@@ -319,27 +313,24 @@ export default function PoliceDashboard() {
             <th className="px-6 py-3">AI Recommendation</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
-          {PATROL_SCHEDULE.map((p) => (
-            <tr key={p.id} className="hover:bg-slate-50 transition">
-              <td className="px-6 py-4 font-bold text-slate-700">{p.id}</td>
-              <td className="px-6 py-4">{p.sector}</td>
-              <td className="px-6 py-4 font-mono text-slate-600">{p.time}</td>
-              <td className="px-6 py-4">
-                <span
-                  className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${p.status === "Active" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}
-                >
-                  {p.status}
-                </span>
-              </td>
-              <td className="px-6 py-4 text-xs text-orange-600 font-semibold">
-                {p.status === "Active"
-                  ? "Maintain Course"
-                  : "Suggest: Shift to Zone B"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
+        <tbody>
+  {patrols.map((p, i) => (
+    <tr key={i}>
+      <td className="px-6 py-4 font-bold">AUTO-{i+1}</td>
+      <td className="px-6 py-4">{p.sector}</td>
+      <td className="px-6 py-4">{p.time_slot}</td>
+      <td className="px-6 py-4">
+        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
+          Scheduled
+        </span>
+      </td>
+      <td className="px-6 py-4 text-xs text-orange-600">
+        {p.reason}
+      </td>
+    </tr>
+  ))}
+</tbody>
+
       </table>
     </div>
   );

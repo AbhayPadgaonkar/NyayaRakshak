@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { 
-  Siren, MapPin, Car, Activity, 
+  Siren, Car, Activity, 
   LayoutDashboard, AlertTriangle, Navigation, 
-  Menu, Clock, CheckCircle2, ArrowUpRight
+  Menu, Clock, CheckCircle2, ArrowUpRight,
+  FileText, Download, Eye, Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// --- 1. DYNAMIC MAP IMPORT (Top Level) ---
+// --- 1. DYNAMIC MAP IMPORT ---
 const TrafficMap = dynamic(() => import("@/app/components/LiveCrimeMap"), { 
   ssr: false,
   loading: () => (
@@ -19,24 +20,23 @@ const TrafficMap = dynamic(() => import("@/app/components/LiveCrimeMap"), {
   )
 });
 
-// --- 2. MOCK DATA (Top Level) ---
+// --- 2. STATIC MOCK DATA (For other sections) ---
 const CONGESTION_ZONES = [
   { id: "JN-402", location: "MG Road Junction", status: "Critical", delay: "45 min", cause: "VIP Movement" },
   { id: "JN-112", location: "Sector 18 Underpass", status: "Heavy", delay: "20 min", cause: "Water Logging" },
-  { id: "JN-303", location: "Expressway Entry", status: "Moderate", delay: "10 min", cause: "Rush Hour" },
 ];
 
 const ACCIDENT_REPORTS = [
   { id: "ACC-992", location: "Ring Road, Gate 4", type: "Collision", severity: "Major", time: "10:15 AM", status: "Ambulance Dispatched" },
   { id: "ACC-995", location: "Flyover South", type: "Breakdown", severity: "Minor", time: "11:30 AM", status: "Resolved" },
+  { id: "ACC-998", location: "Market Chowk", type: "Hit & Run", severity: "Critical", time: "09:45 AM", status: "Investigation" },
 ];
 
-// --- 3. SUB-COMPONENTS (Defined OUTSIDE the main function to prevent errors) ---
+// --- 3. SUB-COMPONENTS ---
 
 const OverviewView = () => (
   <div className="space-y-6">
     <div className="grid md:grid-cols-3 gap-6 h-[400px]">
-      {/* Left: Live Congestion Feed */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
             <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -57,7 +57,6 @@ const OverviewView = () => (
         </div>
       </div>
 
-      {/* Right: Traffic Map */}
       <div className="md:col-span-2 bg-slate-100 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group">
           <TrafficMap />
           <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg z-[400] text-xs">
@@ -66,90 +65,194 @@ const OverviewView = () => (
           </div>
       </div>
     </div>
-
-    {/* VIP Route Status */}
-    <div className="bg-green-900 text-white p-6 rounded-xl shadow-lg flex items-center justify-between">
-        <div>
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <Navigation className="w-5 h-5 text-green-400" /> Green Corridor Active
-          </h3>
-          <p className="text-green-100 text-sm mt-1">
-            Route 4 (Airport to Secretariat) is cleared for VIP Convoy. 
-            Signal synchronization active.
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold">12:45 PM</p>
-          <p className="text-[10px] uppercase tracking-widest text-green-300">ETA Destination</p>
-        </div>
-    </div>
   </div>
 );
 
-const AccidentsView = () => (
-  <div className="space-y-6">
-    <div className="grid md:grid-cols-4 gap-4">
-        <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-center">
-          <h4 className="text-red-800 font-bold text-2xl">4</h4>
-          <p className="text-xs text-red-600 uppercase font-bold">Active Incidents</p>
-        </div>
-        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 text-center">
-          <h4 className="text-orange-800 font-bold text-2xl">12 min</h4>
-          <p className="text-xs text-orange-600 uppercase font-bold">Avg Response Time</p>
-        </div>
-        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
-          <h4 className="text-blue-800 font-bold text-2xl">2</h4>
-          <p className="text-xs text-blue-600 uppercase font-bold">Cranes Deployed</p>
-        </div>
-    </div>
+// --- 4. ACCIDENTS VIEW (With API Integration) ---
+const AccidentsView = () => {
+  const [docs, setDocs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-          <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-red-600" /> Accident Log
-          </h3>
-          <button className="text-xs bg-slate-900 text-white px-3 py-1.5 rounded hover:bg-slate-700">
-            Export Report
-          </button>
+  // KEYWORDS TO FILTER FOR TRAFFIC CONTEXT
+  const TRAFFIC_KEYWORDS = ["accident", "traffic", "collision", "crash", "signal", "jam", "road", "vehicle", "challan"];
+
+  useEffect(() => {
+    async function fetchDocuments() {
+      try {
+        // 1. Fetch from your local API
+        const res = await fetch("http://localhost:8000/documents/");
+        const data = await res.json();
+        
+        // 2. Filter Logic: Check Filename OR Extracted Text fields
+        const trafficDocs = data.filter((doc: any) => {
+          // Combine all searchable text fields
+          const searchableText = `
+            ${doc.filename || ""} 
+            ${doc.content || ""} 
+            ${doc.extracted_text || ""} 
+            ${doc.description || ""}
+          `.toLowerCase();
+
+          // Check if ANY keyword exists in the text
+          return TRAFFIC_KEYWORDS.some(keyword => searchableText.includes(keyword));
+        });
+
+        // 3. Map to UI format
+        const formattedDocs = trafficDocs.map((doc: any) => ({
+          id: doc.id || Math.random().toString(36).substr(2, 9),
+          name: doc.filename || "Untitled Document",
+          type: "Evidence", // You could refine this based on content
+          size: doc.size || "PDF",
+          time: new Date(doc.uploaded_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          url: doc.file_url || "#"
+        }));
+
+        setDocs(formattedDocs);
+      } catch (error) {
+        console.error("❌ Failed to fetch documents:", error);
+        // Fallback or empty state handled by UI
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDocuments();
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      {/* Top Stats Row */}
+      <div className="grid md:grid-cols-4 gap-4">
+          <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-center">
+            <h4 className="text-red-800 font-bold text-2xl">4</h4>
+            <p className="text-xs text-red-600 uppercase font-bold">Active Incidents</p>
+          </div>
+          <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 text-center">
+            <h4 className="text-orange-800 font-bold text-2xl">12 min</h4>
+            <p className="text-xs text-orange-600 uppercase font-bold">Avg Response Time</p>
+          </div>
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
+            <h4 className="text-blue-800 font-bold text-2xl">2</h4>
+            <p className="text-xs text-blue-600 uppercase font-bold">Cranes Deployed</p>
+          </div>
+          <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
+            <h4 className="text-purple-800 font-bold text-2xl">{docs.length}</h4>
+            <p className="text-xs text-purple-600 uppercase font-bold">Complaints Matched</p>
+          </div>
       </div>
-      <table className="w-full text-sm text-left">
-        <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
-          <tr>
-            <th className="px-6 py-3">ID</th>
-            <th className="px-6 py-3">Location</th>
-            <th className="px-6 py-3">Type</th>
-            <th className="px-6 py-3">Status</th>
-            <th className="px-6 py-3">Action</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {ACCIDENT_REPORTS.map((acc) => (
-            <tr key={acc.id} className="hover:bg-slate-50 transition">
-              <td className="px-6 py-4 font-bold text-slate-700">{acc.id}</td>
-              <td className="px-6 py-4">{acc.location}</td>
-              <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${acc.severity === 'Major' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                    {acc.type} ({acc.severity})
-                  </span>
-              </td>
-              <td className="px-6 py-4 flex items-center gap-1 font-bold text-slate-600">
-                {acc.status === 'Resolved' ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Clock className="w-4 h-4 text-orange-500" />}
-                {acc.status}
-              </td>
-              <td className="px-6 py-4">
-                <button className="text-blue-600 hover:text-blue-800 font-bold text-xs flex items-center gap-1">
-                  Dispatch Unit <ArrowUpRight className="w-3 h-3" />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
 
-// --- 4. MAIN COMPONENT ---
+      {/* SPLIT VIEW: Table (Left) & PDFs (Right) */}
+      <div className="grid md:grid-cols-3 gap-6">
+        
+        {/* 1. ACCIDENT LOG TABLE (Spans 2 columns) */}
+        <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
+          <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-600" /> Accident Log
+              </h3>
+              <button className="text-xs bg-slate-900 text-white px-3 py-1.5 rounded hover:bg-slate-700">
+                Export Report
+              </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
+                <tr>
+                  <th className="px-6 py-3">ID</th>
+                  <th className="px-6 py-3">Location</th>
+                  <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {ACCIDENT_REPORTS.map((acc) => (
+                  <tr key={acc.id} className="hover:bg-slate-50 transition">
+                    <td className="px-6 py-4 font-bold text-slate-700">{acc.id}</td>
+                    <td className="px-6 py-4">{acc.location}</td>
+                    <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${acc.severity === 'Major' || acc.severity === 'Critical' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                          {acc.type}
+                        </span>
+                    </td>
+                    <td className="px-6 py-4 flex items-center gap-1 font-bold text-slate-600">
+                      {acc.status === 'Resolved' ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Clock className="w-4 h-4 text-orange-500" />}
+                      {acc.status}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button className="text-blue-600 hover:text-blue-800 font-bold text-xs flex items-center gap-1">
+                        Dispatch <ArrowUpRight className="w-3 h-3" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 2. COMPLAINT PDFS (Right Column) - DYNAMICALLY FILTERED */}
+        <div className="md:col-span-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[500px]">
+          <div className="p-4 border-b border-slate-100 bg-slate-50 rounded-t-xl flex justify-between items-center">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-600" /> Matched Evidence
+            </h3>
+            <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">
+              {loading ? "..." : docs.length} Found
+            </span>
+          </div>
+          
+          <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+             {loading ? (
+               <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+                 <Loader2 className="w-6 h-6 animate-spin" />
+                 <span className="text-xs">Scanning Documents...</span>
+               </div>
+             ) : docs.length === 0 ? (
+               <div className="text-center text-slate-400 py-10 text-sm">
+                 No traffic-related documents found in the database.
+               </div>
+             ) : (
+               docs.map((doc) => (
+                 <div key={doc.id} className="flex items-start gap-3 p-3 border border-slate-100 rounded-lg hover:bg-slate-50 hover:border-blue-200 transition group cursor-pointer">
+                    <div className="bg-red-50 p-2 rounded text-red-600 mt-1">
+                       <FileText className="w-5 h-5" />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                       <p className="text-sm font-bold text-slate-700 truncate" title={doc.name}>
+                         {doc.name}
+                       </p>
+                       <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 rounded uppercase">
+                            Matched
+                          </span>
+                          <span className="text-[10px] text-slate-400">{doc.time}</span>
+                       </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 opacity-50 group-hover:opacity-100 transition">
+                       <a href={doc.url} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-blue-600">
+                         <Eye className="w-4 h-4" />
+                       </a>
+                    </div>
+                 </div>
+               ))
+             )}
+          </div>
+          <div className="p-3 border-t border-slate-100 bg-slate-50 rounded-b-xl">
+             <button className="w-full py-2 text-xs font-bold text-blue-700 border border-blue-200 rounded hover:bg-blue-50 transition">
+                View All Documents
+             </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+// --- 5. MAIN COMPONENT ---
 
 export default function TrafficDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -157,7 +260,6 @@ export default function TrafficDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex">
-      
       {/* SIDEBAR */}
       <motion.aside 
         initial={{ width: 250 }}
@@ -181,7 +283,6 @@ export default function TrafficDashboard() {
              { id: "overview", label: "Live Overview", icon: LayoutDashboard },
              { id: "accidents", label: "Accident Reports", icon: AlertTriangle },
              { id: "signals", label: "Signal Status", icon: Activity },
-             { id: "challans", label: "E-Challan Data", icon: Car },
            ].map((item) => (
              <button
                key={item.id}
@@ -205,7 +306,6 @@ export default function TrafficDashboard() {
 
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        
         {/* Header */}
         <header className="bg-white h-16 border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
           <h2 className="text-xl font-bold text-slate-800 capitalize flex items-center gap-2">
@@ -235,7 +335,6 @@ export default function TrafficDashboard() {
                {activeTab === "overview" && <OverviewView />}
                {activeTab === "accidents" && <AccidentsView />}
                {activeTab === "signals" && <div className="text-center text-slate-400 mt-20">Signal Synchronization Module Loading...</div>}
-               {activeTab === "challans" && <div className="text-center text-slate-400 mt-20">E-Challan Database Accessing...</div>}
              </motion.div>
            </AnimatePresence>
         </main>
