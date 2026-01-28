@@ -29,8 +29,6 @@ const LiveCrimeMap = dynamic(() => import("@/app/components/LiveCrimeMap"), {
   ),
 });
 
-
-
 const PATROL_SCHEDULE = [
   {
     id: "PCR-101",
@@ -74,6 +72,46 @@ export default function PoliceDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  async function handleBroadcastAlert() {
+    if (!alertZone) {
+      alert("Please select a zone");
+      return;
+    }
+
+    setSending(true);
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/alerts/send-sms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: "9152626915", // demo number, later map by zone
+          zone: "Borivali",
+          crime_type: severity,
+          risk:
+            severity === "Emergency" ? 0.9 : severity === "Warning" ? 0.7 : 0.5,
+          event: customMessage || null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.status === "sent") {
+        alert("Alert broadcasted successfully");
+        setCustomMessage("");
+      } else {
+        alert("Alert skipped (risk too low)");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to send alert");
+    } finally {
+      setSending(false);
+    }
+  }
+
   useEffect(() => {
     async function fetchDashboard() {
       try {
@@ -94,6 +132,13 @@ export default function PoliceDashboard() {
   // --- SUB-COMPONENTS ---
 
   // 1. ALERTS TAB
+  const [alertZone, setAlertZone] = useState("Borivali");
+  const [severity, setSeverity] = useState<
+    "Advisory" | "Warning" | "Emergency"
+  >("Advisory");
+  const [customMessage, setCustomMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
   const AlertsView = () => (
     <div className="space-y-6">
       <div className="grid md:grid-cols-2 gap-6">
@@ -104,29 +149,39 @@ export default function PoliceDashboard() {
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">
-                Target Zone
-              </label>
-              <select className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-slate-50">
-                <option>All Residents (General)</option>
-                <option>Sector 14 (High Risk)</option>
-                <option>Railway Station Area</option>
-              </select>
-            </div>
+  <label className="text-xs font-bold text-slate-500 uppercase">
+    Target Zone
+  </label>
+  <select
+    value={alertZone} // 1. Bind to your state variable
+    onChange={(e) => setAlertZone(e.target.value)} // 2. Allow state updates
+    // 3. Removed 'disabled' attribute
+    className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-white text-slate-700" // 4. Changed bg-slate-100 to bg-white
+  >
+    <option value="">-- Select Zone --</option>
+    <option value="Borivali">Borivali</option>
+    <option value="Andheri">Andheri</option>
+    <option value="Sector 14">Sector 14</option>
+  </select>
+</div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase">
                 Alert Severity
               </label>
               <div className="flex gap-2 mt-1">
-                <button className="flex-1 bg-yellow-100 text-yellow-700 py-2 rounded text-xs font-bold hover:bg-yellow-200">
-                  Advisory
-                </button>
-                <button className="flex-1 bg-orange-100 text-orange-700 py-2 rounded text-xs font-bold hover:bg-orange-200">
-                  Warning
-                </button>
-                <button className="flex-1 bg-red-100 text-red-700 py-2 rounded text-xs font-bold hover:bg-red-200">
-                  Emergency
-                </button>
+                {["Advisory", "Warning", "Emergency"].map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => setSeverity(level as any)}
+                    className={`flex-1 py-2 rounded text-xs font-bold ${
+                      severity === level
+                        ? "bg-blue-900 text-white"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
               </div>
             </div>
             <div>
@@ -134,12 +189,18 @@ export default function PoliceDashboard() {
                 Message
               </label>
               <textarea
-                className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-slate-50 h-24"
-                placeholder="Type message here..."
-              ></textarea>
+  className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-slate-50 h-24
+             whitespace-normal break-words resize-none"
+  placeholder="Type message here..."
+></textarea>
+
             </div>
-            <button className="w-full bg-blue-900 text-white py-2 rounded font-bold hover:bg-blue-800 transition">
-              Broadcast via SMS & App
+            <button
+              onClick={handleBroadcastAlert}
+              disabled={sending}
+              className="w-full bg-blue-900 text-white py-2 rounded font-bold hover:bg-blue-800 transition disabled:opacity-50"
+            >
+              {sending ? "Broadcasting..." : "Broadcast via SMS & App"}
             </button>
           </div>
         </div>
@@ -175,11 +236,12 @@ export default function PoliceDashboard() {
       </div>
     </div>
   );
-console.log(
-  "🧠 INCIDENTS SENT TO MAP:",
-  (dashboardData?.recent_complaints ?? [])
-    .filter((c: any) => c.geo?.lat && c.geo?.lon)
-);
+  console.log(
+    "🧠 INCIDENTS SENT TO MAP:",
+    (dashboardData?.recent_complaints ?? []).filter(
+      (c: any) => c.geo?.lat && c.geo?.lon,
+    ),
+  );
 
   // 2. DEPLOYMENT TAB
   const DeploymentView = () => (
@@ -187,19 +249,16 @@ console.log(
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[400px]">
           <div className="h-full w-full relative">
-            
             <LiveCrimeMap
-  incidents={
-    (dashboardData?.recent_complaints ?? [])
-      .filter((c: any) => c.geo?.lat && c.geo?.lon)
-      .map((c: any) => ({
-        lat: c.geo.lat,
-        lon: c.geo.lon,
-        crime: c.crime_type,
-        priority: c.priority,
-      }))
-  }
-/>
+              incidents={(dashboardData?.recent_complaints ?? [])
+                .filter((c: any) => c.geo?.lat && c.geo?.lon)
+                .map((c: any) => ({
+                  lat: c.geo.lat,
+                  lon: c.geo.lon,
+                  crime: c.crime_type,
+                  priority: c.priority,
+                }))}
+            />
 
             <div className="absolute top-4 left-4 bg-white/90 px-3 py-1 rounded text-xs font-bold text-red-600 shadow z-[400]">
               LIVE TACTICAL FEED
@@ -356,7 +415,6 @@ console.log(
           </div>
           <div className="divide-y divide-slate-100">
             {(dashboardData?.recent_complaints ?? []).map((c: any) => (
-
               <div
                 key={c.fir_id}
                 onClick={() => setSelectedFIR(c)}
@@ -575,18 +633,15 @@ console.log(
                     {/* Right Column: Live Map Widget (Span 1) */}
                     <div className="md:col-span-1 h-full">
                       <LiveCrimeMap
-  incidents={
-    (dashboardData?.recent_complaints ?? [])
-      .filter((c: any) => c.geo?.lat && c.geo?.lon)
-      .map((c: any) => ({
-        lat: c.geo.lat,
-        lon: c.geo.lon,
-        crime: c.crime_type,
-        priority: c.priority,
-      }))
-  }
-/>
-
+                        incidents={(dashboardData?.recent_complaints ?? [])
+                          .filter((c: any) => c.geo?.lat && c.geo?.lon)
+                          .map((c: any) => ({
+                            lat: c.geo.lat,
+                            lon: c.geo.lon,
+                            crime: c.crime_type,
+                            priority: c.priority,
+                          }))}
+                      />
                     </div>
                   </div>
 
@@ -682,8 +737,8 @@ console.log(
                     <strong>Status:</strong> {selectedFIR.status}
                   </div>
                   <div>
-                    <strong>Priority:</strong> {selectedFIR.priority ?? "Medium"}
-
+                    <strong>Priority:</strong>{" "}
+                    {selectedFIR.priority ?? "Medium"}
                   </div>
                 </div>
 

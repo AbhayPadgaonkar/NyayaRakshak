@@ -3,6 +3,9 @@ from pydantic import BaseModel
 from backend.services.fast2sms_service import send_sms
 from backend.services.groq_message_service import generate_message_with_groq
 import os
+from backend.mock_store import add_alert
+from datetime import datetime
+
 print("GROQ KEY LOADED:", os.getenv("GROQ_API_KEY"))
 router = APIRouter()
 
@@ -48,6 +51,15 @@ def send_alert_sms(payload: SendSMSRequest):
             status_code=500,
             detail=f"SMS sending failed: {str(e)}"
         )
+    add_alert({
+    "zone": payload.zone,
+    "crime_type": payload.crime_type,
+    "risk": payload.risk,
+    "message": message,
+    "sent_at": datetime.utcnow().isoformat(),
+    "delivery": "Delivered"
+})
+
 
     return {
         "status": "sent",
