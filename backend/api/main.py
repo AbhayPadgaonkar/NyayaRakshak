@@ -12,10 +12,14 @@ from backend.api import (
     alerts,
     deployment,
     community,
-    recommendations
+    recommendations,
+    debug
 )
 from backend.api import fir_pipeline
 from backend.api import pipeline
+
+from backend.api.law_order_dashboard import router as law_order_router
+
 
 
 
@@ -31,7 +35,8 @@ app.add_middleware(
     allow_methods=["*"],  
     allow_headers=["*"],  
 )
-
+app.include_router(debug.router)
+app.include_router(law_order_router)
 app.include_router(pipeline.router, prefix="/pipeline")
 app.include_router(documents.router, prefix="/documents")
 app.include_router(hotspots.router, prefix="/hotspots")

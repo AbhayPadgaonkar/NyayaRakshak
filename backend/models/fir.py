@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, Dict, List
 
 class FIR(BaseModel):
     fir_id: str
@@ -15,7 +15,7 @@ class FIR(BaseModel):
     time: Optional[str]
 
     location_text: Optional[str]
-    geo: Optional[Dict]  # {lat, lon}
+    geo: Optional[Dict]
 
     department_tags: List[str]
-    status: str = "pending"  # pending | investigating | closed
+    status: str
