@@ -22,13 +22,18 @@ def law_order_dashboard():
             pending += 1
 
         recent.append({
-            "fir_id": fir.get("fir_id"),
-            "crime_type": crime,
-            "location": fir.get("location_text"),
-            "time": fir.get("time"),
-            "status": fir.get("status"),
-            "priority": resolve_priority(crime)
-        })
+    "fir_id": fir["fir_id"],
+    "crime_type": crime,
+    "location": fir.get("location_text"),
+    "time": fir.get("time"),
+    "date": fir.get("date"),
+    "sections": fir.get("sections"),
+    "status": fir.get("status"),
+    "priority": resolve_priority(crime),
+    "complaint_text": fir.get("complaint_text"),
+    "raw_text": fir.get("raw_text"),
+})
+
 
     return {
         "stats": {

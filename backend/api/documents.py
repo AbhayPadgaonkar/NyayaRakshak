@@ -4,7 +4,7 @@ import io
 import uuid
 
 from pypdf import PdfReader
-
+from backend.services.text_utils import normalize_text, clean_location, extract_geo_query
 from backend.models.fir import FIR
 from backend.services.fir_extraction import extract_fir_fields
 from backend.services.geocoding_service import geocode_location
@@ -47,15 +47,34 @@ async def ingest_firs(files: List[UploadFile] = File(...)):
         departments = classify_departments(crime_type)
 
         geo = None
-        if extracted.get("location"):
-            geo = geocode_location(extracted["location"])
+        raw_loc = extracted.get("location")
+
+        if raw_loc:
+            clean_loc = clean_location(raw_loc)
+            geo_query = extract_geo_query(clean_loc)
+
+            print("RAW LOCATION:", raw_loc)
+            print("CLEAN LOCATION:", clean_loc)
+            print("GEO QUERY:", geo_query)
+
+            geo = geocode_location(geo_query)
+
+            # 🔁 HARD FALLBACK (AREA LEVEL)
+            if not geo:
+                if "borivali" in geo_query.lower():
+                    geo = geocode_location("Borivali West, Mumbai")
+                elif "dahisar" in geo_query.lower():
+                    geo = geocode_location("Dahisar, Mumbai")
+
+        print("STORING FIR GEO:", geo)
+
 
         fir = FIR(
             fir_id=f"FIR-{uuid.uuid4().hex[:8]}",
             source_file=file.filename,
 
             raw_text=raw_text,
-            complaint_text=complaint_text,
+            complaint_text=normalize_text(complaint_text),
 
             crime_type=crime_type,
             sections=extracted.get("sections"),

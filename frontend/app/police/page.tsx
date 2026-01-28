@@ -182,7 +182,19 @@ export default function PoliceDashboard() {
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[400px]">
           <div className="h-full w-full relative">
-            <LiveCrimeMap />
+            <LiveCrimeMap
+  incidents={
+    (dashboardData?.recent_complaints ?? [])
+      .filter((c: any) => c.geo?.lat && c.geo?.lon)
+      .map((c: any) => ({
+        lat: c.geo.lat,
+        lon: c.geo.lon,
+        crime: c.crime_type,
+        priority: c.priority,
+      }))
+  }
+/>
+
             <div className="absolute top-4 left-4 bg-white/90 px-3 py-1 rounded text-xs font-bold text-red-600 shadow z-[400]">
               LIVE TACTICAL FEED
             </div>
@@ -556,7 +568,19 @@ export default function PoliceDashboard() {
 
                     {/* Right Column: Live Map Widget (Span 1) */}
                     <div className="md:col-span-1 h-full">
-                      <LiveCrimeMap />
+                      <LiveCrimeMap
+  incidents={
+    (dashboardData?.recent_complaints ?? [])
+      .filter((c: any) => c.geo?.lat && c.geo?.lon)
+      .map((c: any) => ({
+        lat: c.geo.lat,
+        lon: c.geo.lon,
+        crime: c.crime_type,
+        priority: c.priority,
+      }))
+  }
+/>
+
                     </div>
                   </div>
 
@@ -636,13 +660,13 @@ export default function PoliceDashboard() {
               <div className="p-6 space-y-4 text-sm text-slate-700">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <strong>Date:</strong> {selectedFIR.Date ?? "N/A"}
+                    <strong>Date:</strong> {selectedFIR.date ?? "N/A"}
                   </div>
                   <div>
                     <strong>Time:</strong> {selectedFIR.time ?? "N/A"}
                   </div>
                   <div className="col-span-2">
-                    <strong>Location:</strong> {selectedFIR.location}
+                    <strong>Location:</strong> {selectedFIR.location??"N/A"}
                   </div>
                   <div className="col-span-2">
                     <strong>IPC Sections:</strong>{" "}
