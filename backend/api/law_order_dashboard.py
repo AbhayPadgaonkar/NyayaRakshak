@@ -27,6 +27,7 @@ def law_order_dashboard():
     "location": fir.get("location_text"),
     "time": fir.get("time"),
     "date": fir.get("date"),
+    "geo": fir.get("geo"),
     "sections": fir.get("sections"),
     "status": fir.get("status"),
     "priority": resolve_priority(crime),

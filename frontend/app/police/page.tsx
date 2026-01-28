@@ -175,6 +175,11 @@ export default function PoliceDashboard() {
       </div>
     </div>
   );
+console.log(
+  "🧠 INCIDENTS SENT TO MAP:",
+  (dashboardData?.recent_complaints ?? [])
+    .filter((c: any) => c.geo?.lat && c.geo?.lon)
+);
 
   // 2. DEPLOYMENT TAB
   const DeploymentView = () => (
@@ -182,6 +187,7 @@ export default function PoliceDashboard() {
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[400px]">
           <div className="h-full w-full relative">
+            
             <LiveCrimeMap
   incidents={
     (dashboardData?.recent_complaints ?? [])
@@ -666,7 +672,7 @@ export default function PoliceDashboard() {
                     <strong>Time:</strong> {selectedFIR.time ?? "N/A"}
                   </div>
                   <div className="col-span-2">
-                    <strong>Location:</strong> {selectedFIR.location??"N/A"}
+                    <strong>Location:</strong> {selectedFIR.location ?? "N/A"}
                   </div>
                   <div className="col-span-2">
                     <strong>IPC Sections:</strong>{" "}

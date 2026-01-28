@@ -14,17 +14,21 @@ export default function LiveCrimeMap({
   incidents = [],
 }: {
   incidents?: Incident[];
-}) {
+}) {console.log("🔥 MAP INCIDENTS RECEIVED:", incidents);
   return (
     <MapContainer
-      center={[19.2183, 72.9781]} // Mumbai default
-      zoom={12}
-      className="h-full w-full rounded-xl"
-    >
+  center={[19.2183, 72.9781]}
+  zoom={12}
+  style={{ height: "100%", width: "100%" }}
+>
+
       <TileLayer
         attribution="© OpenStreetMap"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+<CircleMarker center={[19.076, 72.8777]} radius={10} pathOptions={{ color: "red" }}>
+  <Popup>TEST MARKER</Popup>
+</CircleMarker>
 
       {incidents.map((i, idx) => (
         <CircleMarker
@@ -47,6 +51,7 @@ export default function LiveCrimeMap({
             Priority: {i.priority}
           </Popup>
         </CircleMarker>
+        
       ))}
     </MapContainer>
   );
