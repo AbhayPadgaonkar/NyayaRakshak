@@ -13,3 +13,6 @@ frontend/.next/
 # Env files
 .env
 .env.local
+
+evidence
+uploads
