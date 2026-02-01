@@ -51,8 +51,8 @@ def law_order_dashboard():
 def resolve_priority(crime_type: str):
     crime_type = crime_type.lower()
 
-    if crime_type in ["murder", "attempt to murder", "rape"]:
+    if crime_type in ["murder", "attempt to murder", "rape", "sexual harassment","road accident"]:
         return "High"
-    if crime_type in ["theft", "assault"]:
+    if crime_type in ["theft", "assault","cyber crime - online fraud","cheating and fraud"]:
         return "Medium"
     return "Low"

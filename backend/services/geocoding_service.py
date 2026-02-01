@@ -12,7 +12,7 @@ def geocode_location(location: str):
         "User-Agent": "NyayaRakshak/1.0"
     }
 
-    response = requests.get(url, params=params, headers=headers, timeout=10)
+    response = requests.get(url, params=params, headers=headers, timeout=50)
     response.raise_for_status()
     data = response.json()
 
