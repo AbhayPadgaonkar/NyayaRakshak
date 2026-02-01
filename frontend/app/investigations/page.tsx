@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import { 
   Shield, Search, BrainCircuit, FileText, 
   LayoutDashboard, MapPin, BookOpen, AlertTriangle, 
-  Menu, Network, TrendingUp, ChevronRight, Scale
+  Menu, Network, TrendingUp, ChevronRight, Scale,
+  FileImage
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import EvidencePage from "./evidence";
 
 // --- 1. MOCK DATA (Static Constants) ---
 const CRIME_STATS = [
@@ -238,6 +240,7 @@ export default function InvestigationDashboard() {
              { id: "analysis", label: "Crime Analysis", icon: MapPin },
              { id: "guidance", label: "SOP Guidance", icon: BookOpen },
              { id: "reports", label: "Case Files", icon: FileText },
+             { id: "evidence", label: "Evidence", icon: FileImage },
            ].map((item) => (
              <button
                key={item.id}
@@ -292,6 +295,7 @@ export default function InvestigationDashboard() {
                {activeTab === "analysis" && <AnalysisView />}
                {activeTab === "guidance" && <GuidanceView />}
                {activeTab === "reports" && <div className="text-center text-slate-400 mt-20">Case File Module Loading...</div>}
+               {activeTab === "evidence" && <EvidencePage />}
              </motion.div>
            </AnimatePresence>
         </main>
