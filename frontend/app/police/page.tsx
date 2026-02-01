@@ -15,11 +15,12 @@ import {
   Menu,
   UploadCloud,
   Clock,
+  Send,
+  AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// --- DYNAMIC IMPORT FOR MAP (Critical for Next.js) ---
-// Note: If your alias '@/' isn't set up, change this to "../../components/LiveCrimeMap"
+// --- DYNAMIC IMPORT FOR MAP ---
 const LiveCrimeMap = dynamic(() => import("@/app/components/LiveCrimeMap"), {
   ssr: false,
   loading: () => (
@@ -44,6 +45,126 @@ const COMMUNITY_UPLOADS = [
   },
 ];
 
+// --- 1. LOCATION MAPPER (The "Magic Sauce") ---
+const getLocationCoords = (location: string) => {
+  const loc = (location || "").toLowerCase();
+
+  if (loc.includes("western express") || loc.includes("rawalpada"))
+    return { lat: 19.2562, lon: 72.8665 };
+  if (loc.includes("borivali") && loc.includes("station"))
+    return { lat: 19.2291, lon: 72.8572 };
+  if (loc.includes("shimpoli") || loc.includes("link road"))
+    return { lat: 19.2305, lon: 72.84 };
+  if (loc.includes("sv road") || loc.includes("dahisar"))
+    return { lat: 19.249, lon: 72.859 };
+  if (loc.includes("mandapeshwar")) return { lat: 19.245, lon: 72.85 };
+  if (loc.includes("kandarpada")) return { lat: 19.235, lon: 72.845 };
+  if (loc.includes("sector 14")) return { lat: 19.23, lon: 72.85 }; // Added Sector 14 default
+
+  // Default Borivali Center
+  return { lat: 19.23, lon: 72.85 };
+};
+
+// --- ALERTS VIEW COMPONENT ---
+const AlertsView = ({
+  zone,
+  setZone,
+  severity,
+  setSeverity,
+  message,
+  setMessage,
+  onSend,
+  isSending,
+}: any) => {
+  return (
+    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+      <div className="mb-8 text-center">
+        <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-800">
+          Broadcast Public Alert
+        </h3>
+        <p className="text-slate-500 text-sm">
+          <strong>Zone: Borivali </strong> • SMS: 9152626915
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">
+            Target Zone
+          </label>
+          <select
+            value={zone}
+            onChange={(e) => setZone(e.target.value)}
+            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+            <option value="">Select a Zone...</option>
+            <option value="Borivali">Borivali (Sector 4)</option>
+            <option value="Andheri">Andheri East</option>
+            <option value="Bandra">Bandra West</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">
+            Severity Level
+          </label>
+          <div className="grid grid-cols-3 gap-4">
+            {["Advisory", "Warning", "Emergency"].map((level) => (
+              <button
+                key={level}
+                onClick={() => setSeverity(level)}
+                className={`p-3 rounded-lg border text-sm font-bold transition-all ${
+                  severity === level
+                    ? level === "Emergency"
+                      ? "bg-red-600 text-white border-red-600"
+                      : level === "Warning"
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">
+            Alert Message
+          </label>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Type your alert message here..."
+            className="w-full p-4 border border-slate-300 rounded-lg h-32 resize-none focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+          <p className="text-right text-xs text-slate-400 mt-1">
+            {message.length} / 160 characters
+          </p>
+        </div>
+
+        <button
+          onClick={onSend}
+          disabled={isSending || !message}
+          className="w-full bg-slate-900 text-white font-bold py-4 rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {isSending ? (
+            "Broadcasting..."
+          ) : (
+            <>
+              <Send className="w-4 h-4" /> Send Alert Broadcast
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default function PoliceDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -51,12 +172,64 @@ export default function PoliceDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  async function handleBroadcastAlert() {
-    if (!alertZone) {
-      alert("Please select a zone");
-      return;
-    }
+  // --- NEW STATE FOR ALERTS ---
+  const [dummyZone, setDummyZone] = useState("");
+  const [severity, setSeverity] = useState("Advisory");
+  const [customMessage, setCustomMessage] = useState("");
+  const [isSending, setSending] = useState(false);
 
+  // --- HELPER: PROCESS MAP DATA (PREVENTS SYNTAX ERRORS) ---
+  const getCleanMapData = (complaints: any[]) => {
+    if (!complaints) return [];
+
+    return complaints
+      .map((c: any, index: number) => {
+        // --- DEBUG LOG START ---
+        if (index < 2) {
+          console.log(`[MAP DEBUG] Complaint ${c.fir_id}`);
+          console.log("Raw Geo:", c.geo);
+          console.log("Type:", typeof c.geo);
+        }
+        // --- DEBUG LOG END ---
+
+        let lat, lon;
+
+        // 1. Handle Object {lat:..., lon:...}
+        if (typeof c.geo === "object" && c.geo !== null && c.geo.lat) {
+          lat = c.geo.lat;
+          lon = c.geo.lon;
+        }
+        // 2. Handle Python String "{'lat':...}"
+        else if (typeof c.geo === "string") {
+          try {
+            const cleanJson = c.geo.replace(/'/g, '"'); // Fix single quotes
+            const parsed = JSON.parse(cleanJson);
+            lat = parsed.lat;
+            lon = parsed.lon;
+          } catch (e) {
+            console.warn("Geo parse failed for:", c.fir_id);
+          }
+        }
+
+        // 3. Fallback to Location Text if Geo is Missing/Failed
+        if (!lat || !lon) {
+          const fallback = getLocationCoords(c.location || "Borivali");
+          lat = fallback.lat;
+          lon = fallback.lon;
+        }
+
+        return {
+          lat,
+          lon,
+          crime: c.crime_type,
+          priority: c.priority,
+        };
+      })
+      .filter((item: any) => item.lat && item.lon); // Final Safety Check
+  };
+
+  // --- HANDLER (HARDCODED) ---
+  async function handleBroadcastAlert() {
     setSending(true);
 
     try {
@@ -66,8 +239,8 @@ export default function PoliceDashboard() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          phone: "9152626915", // demo number, later map by zone
-          zone: "Borivali",
+          phone: "9152626915", // HARDCODED
+          zone: "Borivali", // HARDCODED
           crime_type: severity,
           risk:
             severity === "Emergency" ? 0.9 : severity === "Warning" ? 0.7 : 0.5,
@@ -77,8 +250,8 @@ export default function PoliceDashboard() {
 
       const data = await res.json();
 
-      if (data.status === "sent") {
-        alert("Alert broadcasted successfully");
+      if (data.status === "sent" || res.ok) {
+        alert("Alert broadcasted successfully (Target: Borivali)");
         setCustomMessage("");
       } else {
         alert("Alert skipped (risk too low)");
@@ -90,6 +263,7 @@ export default function PoliceDashboard() {
       setSending(false);
     }
   }
+
   const [patrols, setPatrols] = useState<any[]>([]);
 
   useEffect(() => {
@@ -117,117 +291,6 @@ export default function PoliceDashboard() {
 
   // --- SUB-COMPONENTS ---
 
-  // 1. ALERTS TAB
-  const [alertZone, setAlertZone] = useState("Borivali");
-  const [severity, setSeverity] = useState<
-    "Advisory" | "Warning" | "Emergency"
-  >("Advisory");
-  const [customMessage, setCustomMessage] = useState("");
-  const [sending, setSending] = useState(false);
-
-  const AlertsView = () => (
-    <div className="space-y-6">
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-blue-600" /> Broadcast Public
-            Safety Alert
-          </h3>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">
-                Target Zone
-              </label>
-              <select
-                value={alertZone} // 1. Bind to your state variable
-                onChange={(e) => setAlertZone(e.target.value)} // 2. Allow state updates
-                // 3. Removed 'disabled' attribute
-                className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-white text-slate-700" // 4. Changed bg-slate-100 to bg-white
-              >
-                <option value="">-- Select Zone --</option>
-                <option value="Borivali">Borivali</option>
-                <option value="Andheri">Andheri</option>
-                <option value="Sector 14">Sector 14</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">
-                Alert Severity
-              </label>
-              <div className="flex gap-2 mt-1">
-                {["Advisory", "Warning", "Emergency"].map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => setSeverity(level as any)}
-                    className={`flex-1 py-2 rounded text-xs font-bold ${
-                      severity === level
-                        ? "bg-blue-900 text-white"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">
-                Message
-              </label>
-              <textarea
-                className="w-full mt-1 p-2 border border-slate-300 rounded text-sm bg-slate-50 h-24
-             whitespace-normal break-words resize-none"
-                placeholder="Type message here..."
-              ></textarea>
-            </div>
-            <button
-              onClick={handleBroadcastAlert}
-              disabled={sending}
-              className="w-full bg-blue-900 text-white py-2 rounded font-bold hover:bg-blue-800 transition disabled:opacity-50"
-            >
-              {sending ? "Broadcasting..." : "Broadcast via SMS & App"}
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">
-            Recent Broadcasts
-          </h3>
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="flex gap-3 border-b border-slate-100 pb-3 last:border-0"
-              >
-                <div className="bg-blue-50 p-2 rounded-full h-fit">
-                  <Bell className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">
-                    Traffic Advisory: MG Road Blocked
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Sent to: Sector 22 • 2 hours ago •{" "}
-                    <span className="text-green-600 font-bold">
-                      Delivered (98%)
-                    </span>
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-  console.log(
-    "🧠 INCIDENTS SENT TO MAP:",
-    (dashboardData?.recent_complaints ?? []).filter(
-      (c: any) => c.geo?.lat && c.geo?.lon,
-    ),
-  );
-
   // 2. DEPLOYMENT TAB
   const [deployments, setDeployments] = useState<any[]>([]);
 
@@ -242,15 +305,9 @@ export default function PoliceDashboard() {
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[400px]">
           <div className="h-full w-full relative">
+            {/* USING HELPER FUNCTION */}
             <LiveCrimeMap
-              incidents={(dashboardData?.recent_complaints ?? [])
-                .filter((c: any) => c.geo?.lat && c.geo?.lon)
-                .map((c: any) => ({
-                  lat: c.geo.lat,
-                  lon: c.geo.lon,
-                  crime: c.crime_type,
-                  priority: c.priority,
-                }))}
+              incidents={getCleanMapData(dashboardData?.recent_complaints)}
             />
 
             <div className="absolute top-4 left-4 bg-white/90 px-3 py-1 rounded text-xs font-bold text-red-600 shadow z-[400]">
@@ -314,30 +371,26 @@ export default function PoliceDashboard() {
           </tr>
         </thead>
         <tbody>
-  {patrols.map((p, i) => (
-    <tr key={i}>
-      <td className="px-6 py-4 font-bold">AUTO-{i+1}</td>
-      <td className="px-6 py-4">{p.sector}</td>
-      <td className="px-6 py-4">{p.time_slot}</td>
-      <td className="px-6 py-4">
-        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
-          Scheduled
-        </span>
-      </td>
-      <td className="px-6 py-4 text-xs text-orange-600">
-        {p.reason}
-      </td>
-    </tr>
-  ))}
-</tbody>
-
+          {patrols.map((p, i) => (
+            <tr key={i}>
+              <td className="px-6 py-4 font-bold">AUTO-{i + 1}</td>
+              <td className="px-6 py-4">{p.sector}</td>
+              <td className="px-6 py-4">{p.time_slot}</td>
+              <td className="px-6 py-4">
+                <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
+                  Scheduled
+                </span>
+              </td>
+              <td className="px-6 py-4 text-xs text-orange-600">{p.reason}</td>
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
   );
 
-  // 4. COMPLAINTS TAB - HYDRATION FIX APPLIED
+  // 4. COMPLAINTS TAB
   const ComplaintsView = () => {
-    // We use a local state to ensure values are set ONLY after mount (client-side)
     const [counts, setCounts] = useState({
       Theft: 0,
       Assault: 0,
@@ -349,22 +402,24 @@ export default function PoliceDashboard() {
       if (!dashboardData?.complaint_counts) return;
 
       const countsFromBackend = dashboardData.complaint_counts;
-
+console.log("Backend Keys:", Object.keys(countsFromBackend));
       setCounts({
         Theft: countsFromBackend["Theft"] ?? 0,
+      Assault:
+        (countsFromBackend["Attempt to Murder"] ?? 0) +
+        (countsFromBackend["Murder"] ?? 0) +
+        (countsFromBackend["Sexual Harassment"] ?? 0), // Added this based on your logs
 
-        Assault:
-          (countsFromBackend["Attempt to Murder"] ?? 0) +
-          (countsFromBackend["Assault"] ?? 0),
+      // FIXED: Copied EXACT strings with extra spaces and the special dash '–'
+      Cyber:
+        (countsFromBackend["Cheating  and  Fraud"] ?? 0) + 
+        (countsFromBackend["Cyber  Crime  –  Online  Fraud"] ?? 0),
 
-        Cyber:
-          countsFromBackend["Cyber Crime"] ??
-          countsFromBackend["Cyber  Crime  –  Online  Fraud"] ??
-          0,
-
-        Traffic:
-          (countsFromBackend["Traffic  Obstruction"] ?? 0) +
-          (countsFromBackend["Traffic  Obstruction  /  Public  Nuisance"] ?? 0),
+      // FIXED: Copied EXACT strings with extra spaces
+      Traffic:
+        (countsFromBackend["Traffic  Obstruction"] ?? 0) +
+        (countsFromBackend["Traffic  Obstruction  /  Public  Nuisance"] ?? 0) +
+        (countsFromBackend["Road Accident"] ?? 0), // Added Road Accident to Traffic stats
       });
     }, [dashboardData]);
 
@@ -396,7 +451,6 @@ export default function PoliceDashboard() {
             >
               All Cases
             </button>
-
             <button className="text-slate-500 font-medium hover:text-slate-800 pb-1 text-sm">
               High Priority
             </button>
@@ -623,15 +677,11 @@ export default function PoliceDashboard() {
 
                     {/* Right Column: Live Map Widget (Span 1) */}
                     <div className="md:col-span-1 h-full">
+                      {/* USING HELPER FUNCTION - NO SYNTAX ERRORS */}
                       <LiveCrimeMap
-                        incidents={(dashboardData?.recent_complaints ?? [])
-                          .filter((c: any) => c.geo?.lat && c.geo?.lon)
-                          .map((c: any) => ({
-                            lat: c.geo.lat,
-                            lon: c.geo.lon,
-                            crime: c.crime_type,
-                            priority: c.priority,
-                          }))}
+                        incidents={getCleanMapData(
+                          dashboardData?.recent_complaints
+                        )}
                       />
                     </div>
                   </div>
@@ -667,7 +717,18 @@ export default function PoliceDashboard() {
                 </div>
               )}
 
-              {activeTab === "alerts" && <AlertsView />}
+              {activeTab === "alerts" && (
+                <AlertsView
+                  zone={dummyZone}
+                  setZone={setDummyZone}
+                  severity={severity}
+                  setSeverity={setSeverity}
+                  message={customMessage}
+                  setMessage={setCustomMessage}
+                  onSend={handleBroadcastAlert}
+                  isSending={isSending}
+                />
+              )}
               {activeTab === "deployment" && <DeploymentView />}
               {activeTab === "patrolling" && <PatrollingView />}
               {activeTab === "complaints" && <ComplaintsView />}
